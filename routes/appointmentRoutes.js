@@ -1,23 +1,23 @@
-const express = require("express");
+// routes/appointmentRoutes.js
+const express = require('express');
+const appointmentController = require('../controllers/appointmentController');
+const { authRequired } = require('../middleware/authMiddleware');
+
 const router = express.Router();
 
-// Import controller functions
-const {
-  book,
-  myAppointments,
-  cancel,
-} = require("../controllers/appointmentController");
+// GET /api/appointments
+router.get('/', authRequired, appointmentController.getAllAppointments);
 
-// Import middleware
-const authRequired = require("../middleware/authRequired");
+// GET /api/appointments/:id
+router.get('/:id', authRequired, appointmentController.getAppointmentById);
 
-// Book appointment
-router.post("/book", authRequired, book);
+// POST /api/appointments
+router.post('/', authRequired, appointmentController.createAppointment);
 
-// View user's appointments
-router.get("/my", authRequired, myAppointments);
+// PUT /api/appointments/:id
+router.put('/:id', authRequired, appointmentController.updateAppointment);
 
-// Cancel appointment
-router.delete("/:id/cancel", authRequired, cancel);
+// DELETE /api/appointments/:id
+router.delete('/:id', authRequired, appointmentController.deleteAppointment);
 
 module.exports = router;

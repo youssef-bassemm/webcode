@@ -1,86 +1,85 @@
-// Local SQLite connection for SmartClinic
-const sqlite = require("sqlite3").verbose();
-const path = require("path");
+// db.js
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 
-// Database file path taken from environment
-const databaseFile = process.env.DB_FILE || "smartclinic.db";
+const DB_PATH = path.join(__dirname, 'smartclinic.db');
 
-// Create or open the database
-const connection = new sqlite.Database(
-  path.resolve(__dirname, databaseFile),
-  (err) => {
-    if (err) {
-      console.error("Failed to open SmartClinic database", err);
-    } else {
-      console.log("SmartClinic database ready.");
-    }
+const db = new sqlite3.Database(DB_PATH, (err) => {
+  if (err) {
+    console.error('Failed to connect to SQLite database:', err.message);
+  } else {
+    console.log('Connected to SQLite database at', DB_PATH);
+    initSchema();
   }
-);
+});
 
-// Initialize all tables in one go
-connection.serialize(() => {
-  // User accounts (patients + doctors + admin)
-  connection.run(`
-      CREATE TABLE IF NOT EXISTS accounts (
+// Create all tables if they don't exist
+function initSchema() {
+  db.serialize(() => {
+    // Users
+    db.run(`
+      CREATE TABLE IF NOT EXISTS Users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        full_name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        pass_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
         phone TEXT,
-        role TEXT NOT NULL CHECK(role IN ('patient','doctor','admin'))
-      );
+        role TEXT NOT NULL DEFAULT 'patient'
+      )
     `);
 
-  // Clinics available in the system
-  connection.run(`
-      CREATE TABLE IF NOT EXISTS clinics (
+    // Clinics
+    db.run(`
+      CREATE TABLE IF NOT EXISTS Clinics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
+        name TEXT NOT NULL,
         address TEXT NOT NULL
-      );
+      )
     `);
 
-  // Doctors belong to a clinic
-  connection.run(`
-      CREATE TABLE IF NOT EXISTS doctors (
+    // Doctors
+    db.run(`
+      CREATE TABLE IF NOT EXISTS Doctors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        specialty TEXT NOT NULL,
+        clinic_id INTEGER,
+        FOREIGN KEY (clinic_id) REFERENCES Clinics(id)
+      )
+    `);
+
+    // Appointments
+    db.run(`
+      CREATE TABLE IF NOT EXISTS Appointments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
-        clinic_id INTEGER NOT NULL,
-        specialty TEXT NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES accounts(id),
-        FOREIGN KEY(clinic_id) REFERENCES clinics(id)
-      );
-    `);
-
-  // Appointment reservations
-  connection.run(`
-      CREATE TABLE IF NOT EXISTS bookings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_id INTEGER NOT NULL,
         doctor_id INTEGER NOT NULL,
         clinic_id INTEGER NOT NULL,
         date TEXT NOT NULL,
         time TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'booked'
-          CHECK(status IN ('booked','cancelled','finished')),
-        payment TEXT NOT NULL CHECK(payment IN ('cash','visa')),
-        FOREIGN KEY(patient_id) REFERENCES accounts(id),
-        FOREIGN KEY(doctor_id) REFERENCES doctors(id),
-        FOREIGN KEY(clinic_id) REFERENCES clinics(id)
-      );
+        status TEXT NOT NULL DEFAULT 'pending',
+        FOREIGN KEY (user_id) REFERENCES Users(id),
+        FOREIGN KEY (doctor_id) REFERENCES Doctors(id),
+        FOREIGN KEY (clinic_id) REFERENCES Clinics(id)
+      )
     `);
 
-  // Basic log of authentication activity
-  connection.run(`
-      CREATE TABLE IF NOT EXISTS login_log (
+    // Payments
+    db.run(`
+      CREATE TABLE IF NOT EXISTS Payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_email TEXT,
-        action TEXT NOT NULL,
-        ip TEXT,
-        timestamp TEXT NOT NULL
-      );
+        user_id INTEGER NOT NULL,
+        appointment_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        method TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'completed',
+        FOREIGN KEY (user_id) REFERENCES Users(id),
+        FOREIGN KEY (appointment_id) REFERENCES Appointments(id)
+      )
     `);
-});
 
-// Export connection to use in models
-module.exports = connection;
+    console.log('Database schema initialized');
+  });
+}
+
+module.exports = db;

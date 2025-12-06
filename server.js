@@ -1,15 +1,12 @@
-// Load environment config
-require("dotenv").config();
+// server.js
+require('dotenv').config();
+const http = require('http');
+const app = require('./index');
 
-// Import express application
-const application = require("./index");
+const PORT = process.env.PORT || 3000;
 
-// Read port from configuration
-const serverPort = process.env.PORT || 3000;
+const server = http.createServer(app);
 
-// Start listening
-application.listen(serverPort, () => {
-  console.log(`SmartClinic service online at port ${serverPort}`);
-  console.log("JWT_SECRET =", JSON.stringify(process.env.JWT_SECRET));
+server.listen(PORT, () => {
+  console.log(`SmartClinic backend listening on port ${PORT}`);
 });
-

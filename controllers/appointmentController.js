@@ -1,98 +1,54 @@
 // controllers/appointmentController.js
+const appointmentModel = require('../models/appointmentModel');
 
-// === IMPORT MODEL FUNCTIONS ===
-// controllers/appointmentController.js
-
-// =============================
-// IMPORT MODEL FUNCTIONS
-// =============================
-const {
-  createBooking,
-  getBookingsForUser,
-  cancelBooking,
-} = require("../models/appointmentModel");
-
-
-// =============================
-// POST /appointments/book
-// =============================
-async function book(req, res) {
-  try {
-    const patientId = req.user.id; // from authRequired middleware
-    const { doctorId, clinicId, date, time, paymentMethod } = req.body;
-
-    // Validate input
-    if (!doctorId || !clinicId || !date || !time || !paymentMethod) {
-      return res.status(400).json({ error: "Missing booking details" });
-    }
-
-    // Create booking record
-    const result = await createBooking({
-      patientId,
-      doctorId,
-      clinicId,
-      date,
-      time,
-      paymentMethod,
-    });
-
-    return res.status(201).json({
-      message: "Appointment booked successfully",
-      bookingId: result.id,
-    });
-  } catch (err) {
-    console.error("Book error:", err);
-    return res.status(500).json({ error: "Booking failed" });
-  }
-}
-
-
-// =============================
-// GET /appointments/my
-// =============================
-async function myAppointments(req, res) {
-  try {
-    const patientId = req.user.id;
-    const rows = await getBookingsForUser(patientId);
-
-    return res.json({
-      bookings: rows,
-    });
-  } catch (err) {
-    console.error("Get bookings error:", err);
-    return res.status(500).json({ error: "Could not load bookings" });
-  }
-}
-
-
-// =============================
-// DELETE /appointments/:id/cancel
-// =============================
-async function cancel(req, res) {
-  try {
-    const patientId = req.user.id;
-    const bookingId = req.params.id;
-
-    const result = await cancelBooking(bookingId, patientId);
-
-    if (!result.changes) {
-      return res.status(400).json({ error: "Cannot cancel this booking" });
-    }
-
-    return res.json({ message: "Booking cancelled" });
-  } catch (err) {
-    console.error("Cancel booking error:", err);
-    return res.status(500).json({ error: "Cancellation failed" });
-  }
-}
-
-
-// =============================
-// EXPORT FUNCTIONS
-// =============================
-module.exports = {
-  book,
-  myAppointments,
-  cancel,
+exports.getAllAppointments = (req, res) => {
+  appointmentModel.getAllAppointments((err, appointments) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json(appointments);
+  });
 };
 
+exports.getAppointmentById = (req, res) => {
+  const { id } = req.params;
+  appointmentModel.getAppointmentById(id, (err, appointment) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+    res.json(appointment);
+  });
+};
+
+exports.createAppointment = (req, res) => {
+  const { user_id, doctor_id, clinic_id, date, time, status } = req.body;
+
+  if (!user_id || !doctor_id || !clinic_id || !date || !time) {
+    return res.status(400).json({ error: 'Missing required appointment fields' });
+  }
+
+  appointmentModel.createAppointment(
+    { user_id, doctor_id, clinic_id, date, time, status },
+    (err, appointment) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.status(201).json(appointment);
+    }
+  );
+};
+
+exports.updateAppointment = (req, res) => {
+  const { id } = req.params;
+  const { date, time, status } = req.body;
+
+  appointmentModel.updateAppointment(id, { date, time, status }, (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.changes === 0) return res.status(404).json({ error: 'Appointment not found' });
+    res.json({ message: 'Appointment updated successfully' });
+  });
+};
+
+exports.deleteAppointment = (req, res) => {
+  const { id } = req.params;
+  appointmentModel.deleteAppointment(id, (err, result) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (result.changes === 0) return res.status(404).json({ error: 'Appointment not found' });
+    res.json({ message: 'Appointment deleted successfully' });
+  });
+};
